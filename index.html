@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猜数字 · Guess the Number</title>
+<style>
+  :root{
+    --bg1:#0f1020;
+    --bg2:#1b1035;
+    --bg3:#081c2e;
+    --glass:rgba(255,255,255,.08);
+    --glass-strong:rgba(255,255,255,.14);
+    --line:rgba(255,255,255,.16);
+    --txt:#eaf0ff;
+    --dim:#9aa6c8;
+    --accent:#6ee7ff;
+    --accent2:#a78bfa;
+    --hot:#ff6b8b;
+    --cold:#5ad2ff;
+    --ok:#3ddc97;
+    --warn:#ffd166;
+    --radius:18px;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+
+  html,body{height:100%}
+
+  body{
+    font-family:"PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+    color:var(--txt);
+    background:
+      radial-gradient(1100px 700px at 12% -10%, #2b1b5e 0%, transparent 60%),
+      radial-gradient(900px 600px at 100% 0%, #0b3b57 0%, transparent 55%),
+      radial-gradient(900px 800px at 50% 120%, #3a1240 0%, transparent 60%),
+      linear-gradient(160deg,var(--bg1),var(--bg2) 45%,var(--bg3));
+    min-height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px 16px;
+    overflow-x:hidden;
+  }
+
+  /* 背景漂浮光点 */
+  .stars{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+  .stars i{
+    position:absolute;border-radius:50%;
+    background:rgba(255,255,255,.5);
+    animation:float linear infinite;
+    opacity:.35;
+  }
+  @keyframes float{
+    0%{transform:translateY(110vh) scale(.6);opacity:0}
+    15%{opacity:.5}
+    100%{transform:translateY(-10vh) scale(1.1);opacity:0}
+  }
+
+  .wrap{
+    position:relative;z-index:1;
+    width:100%;max-width:460px;
+    animation:rise .7s cubic-bezier(.2,.9,.3,1) both;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(26px) scale(.97)}to{opacity:1;transform:none}}
+
+  .card{
+    background:linear-gradient(180deg,var(--glass-strong),var(--glass));
+    border:1px solid var(--line);
+    border-radius:26px;
+    padding:26px 24px 22px;
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+    box-shadow:0 30px 70px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.14);
+  }
+
+  /* ---------- 头部 ---------- */
+  .head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+  .title{font-size:22px;font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:9px}
+  .title .dot{
+    width:10px;height:10px;border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    box-shadow:0 0 14px var(--accent);
+  }
+  .sub{font-size:12px;color:var(--dim);margin-top:3px;letter-spacing:.3px}
+  .icon-btn{
+    width:38px;height:38px;flex:none;border-radius:12px;
+    border:1px solid var(--line);background:var(--glass);color:var(--txt);
+    cursor:pointer;font-size:17px;transition:.2s;
+    display:grid;place-items:center;
+  }
+  .icon-btn:hover{background:var(--glass-strong);transform:translateY(-2px)}
+
+  /* ---------- 难度 ---------- */
+  .label{font-size:12px;color:var(--dim);margin-bottom:8px;letter-spacing:1px}
+  .levels{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+  .lv{
+    border:1px solid var(--line);background:rgba(255,255,255,.05);
+    color:var(--dim);border-radius:12px;padding:9px 4px;cursor:pointer;
+    font-size:13px;font-weight:600;transition:.2s;text-align:center;
+  }
+  .lv small{display:block;font-size:10px;font-weight:400;opacity:.7;margin-top:2px}
+  .lv:hover{color:var(--txt);background:rgba(255,255,255,.1)}
+  .lv.on{
+    color:#0b1020;border-color:transparent;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    box-shadow:0 6px 18px rgba(110,231,255,.28);
+  }
+
+  /* ---------- 状态条 ---------- */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:16px}
+  .stat{
+    background:rgba(255,255,255,.05);border:1px solid var(--line);
+    border-radius:14px;padding:10px 6px;text-align:center;
+  }
+  .stat b{display:block;font-size:19px;font-weight:800;line-height:1.15}
+  .stat span{font-size:10px;color:var(--dim);letter-spacing:.5px}
+  #leftVal{color:var(--warn)}
+  #leftVal.danger{color:var(--hot)}
+
+  /* ---------- 输入区 ---------- */
+  .range{
+    text-align:center;font-size:13px;color:var(--dim);margin-bottom:12px;
+  }
+  .range b{color:var(--accent);font-size:15px}
+
+  .inputRow{display:flex;gap:10px}
+  input[type=number]{
+    flex:1;min-width:0;
+    background:rgba(0,0,0,.28);border:1px solid var(--line);
+    border-radius:14px;padding:13px 16px;color:var(--txt);
+    font-size:20px;font-weight:700;letter-spacing:1px;outline:none;
+    transition:.2s;font-family:inherit;
+  }
+  input[type=number]::placeholder{color:rgba(255,255,255,.28);font-weight:500;font-size:15px;letter-spacing:0}
+  input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(110,231,255,.14)}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  input[type=number]{-moz-appearance:textfield}
+
+  .btn{
+    border:0;border-radius:14px;padding:0 22px;cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#0b1020;font-weight:800;font-size:15px;transition:.2s;
+    box-shadow:0 8px 22px rgba(110,231,255,.25);
+    white-space:nowrap;
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(110,231,255,.35)}
+  .btn:active{transform:translateY(0) scale(.97)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+
+  .hint{font-size:12px;color:var(--dim);margin-top:10px;text-align:center;min-height:17px}
+  .hint.err{color:var(--hot)}
+
+  /* ---------- 反馈卡 ---------- */
+  .feedback{
+    margin-top:14px;border-radius:16px;padding:14px;
+    text-align:center;font-size:15px;font-weight:700;
+    border:1px solid var(--line);background:rgba(255,255,255,.05);
+    transition:.25s;opacity:0;transform:translateY(-8px);height:0;padding:0;border:0;overflow:hidden;
+  }
+  .feedback.show{opacity:1;transform:none;height:auto;padding:14px;border:1px solid var(--line)}
+  .feedback.hot{background:rgba(255,107,139,.14);border-color:rgba(255,107,139,.4);color:var(--hot)}
+  .feedback.cold{background:rgba(90,210,255,.14);border-color:rgba(90,210,255,.4);color:var(--cold)}
+  .feedback.win{background:rgba(61,220,151,.16);border-color:rgba(61,220,151,.45);color:var(--ok)}
+  .feedback.lose{background:rgba(255,107,139,.16);border-color:rgba(255,107,139,.45);color:var(--hot)}
+  .feedback .emo{font-size:22px;display:block;margin-bottom:4px}
+
+  /* 温度条 */
+  .thermo{margin-top:14px}
+  .bar{
+    height:8px;border-radius:99px;overflow:hidden;
+    background:rgba(255,255,255,.09);border:1px solid var(--line);
+  }
+  .bar i{
+    display:block;height:100%;width:0%;border-radius:99px;
+    background:linear-gradient(90deg,var(--cold),var(--warn),var(--hot));
+    transition:width .5s cubic-bezier(.2,.9,.3,1), margin-left .5s;
+  }
+  .barTxt{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:6px}
+
+  /* ---------- 历史 ---------- */
+  .histTitle{
+    display:flex;justify-content:space-between;align-items:center;
+    margin:18px 0 8px;font-size:12px;color:var(--dim);letter-spacing:1px;
+  }
+  .hist{
+    max-height:172px;overflow-y:auto;display:flex;flex-wrap:wrap;gap:7px;
+    padding-right:4px;
+  }
+  .hist::-webkit-scrollbar{width:5px}
+  .hist::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:9px}
+  .chip{
+    font-size:12px;font-weight:700;padding:5px 11px;border-radius:99px;
+    border:1px solid var(--line);background:rgba(255,255,255,.05);
+    animation:pop .3s cubic-bezier(.2,.9,.3,1) both;
+  }
+  @keyframes pop{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
+  .chip.up{color:var(--cold);border-color:rgba(90,210,255,.35);background:rgba(90,210,255,.1)}
+  .chip.down{color:var(--hot);border-color:rgba(255,107,139,.35);background:rgba(255,107,139,.1)}
+  .chip.hit{color:var(--ok);border-color:rgba(61,220,151,.45);background:rgba(61,220,151,.14)}
+  .empty{font-size:12px;color:rgba(255,255,255,.3);padding:6px 0}
+
+  .foot{display:flex;gap:9px;margin-top:18px}
+  .ghost{
+    flex:1;background:rgba(255,255,255,.05);border:1px solid var(--line);
+    color:var(--txt);border-radius:14px;padding:11px;cursor:pointer;
+    font-size:13px;font-weight:600;transition:.2s;font-family:inherit;
+  }
+  .ghost:hover{background:rgba(255,255,255,.12);transform:translateY(-2px)}
+
+  /* ---------- 弹窗 ---------- */
+  .mask{
+    position:fixed;inset:0;z-index:20;display:none;
+    align-items:center;justify-content:center;padding:20px;
+    background:rgba(6,8,20,.72);backdrop-filter:blur(6px);
+  }
+  .mask.show{display:flex;animation:fade .25s both}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .modal{
+    width:100%;max-width:340px;text-align:center;
+    background:linear-gradient(180deg,rgba(255,255,255,.15),rgba(255,255,255,.07));
+    border:1px solid var(--line);border-radius:24px;padding:30px 24px 24px;
+    box-shadow:0 30px 70px rgba(0,0,0,.55);
+    animation:zoom .35s cubic-bezier(.2,1.3,.4,1) both;
+  }
+  @keyframes zoom{from{opacity:0;transform:scale(.8) translateY(20px)}to{opacity:1;transform:none}}
+  .modal .mEmo{font-size:52px;line-height:1;margin-bottom:10px}
+  .modal h2{font-size:24px;margin-bottom:8px}
+  .modal p{font-size:14px;color:var(--dim);line-height:1.7;margin-bottom:20px}
+  .modal p b{color:var(--accent);font-size:17px}
+  .modal .btns{display:flex;gap:10px}
+  .modal .btns button{flex:1;font-family:inherit}
+
+  /* 彩带 */
+  .confetti{position:fixed;inset:0;pointer-events:none;z-index:30;overflow:hidden}
+  .confetti i{
+    position:absolute;top:-14px;width:9px;height:14px;border-radius:2px;
+    animation:fall linear forwards;
+  }
+  @keyframes fall{
+    0%{transform:translateY(0) rotate(0);opacity:1}
+    100%{transform:translateY(105vh) rotate(720deg);opacity:.9}
+  }
+
+  @media(max-width:420px){
+    .card{padding:20px 17px 18px;border-radius:22px}
+    .title{font-size:19px}
+    .levels{grid-template-columns:repeat(2,1fr)}
+    input[type=number]{font-size:18px}
+    .btn{padding:0 17px;font-size:14px}
+  }
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<div class="wrap">
+  <div class="card">
+    <div class="head">
+      <div>
+        <div class="title"><span class="dot"></span>猜数字</div>
+        <div class="sub">Guess the Number · 用最少的次数找到它</div>
+      </div>
+      <button class="icon-btn" id="helpBtn" title="玩法说明">?</button>
+    </div>
+
+    <div class="label">选择难度</div>
+    <div class="levels" id="levels">
+      <button class="lv on" data-max="50"  data-tries="6">简单<small>1-50</small></button>
+      <button class="lv"    data-max="100" data-tries="7">普通<small>1-100</small></button>
+      <button class="lv"    data-max="200" data-tries="8">困难<small>1-200</small></button>
+      <button class="lv"    data-max="500" data-tries="10">地狱<small>1-500</small></button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b id="tryVal">0</b><span>已猜次数</span></div>
+      <div class="stat"><b id="leftVal">6</b><span>剩余机会</span></div>
+      <div class="stat"><b id="bestVal">--</b><span>最佳记录</span></div>
+    </div>
+
+    <div class="range">答案范围：<b>1 ~ <span id="maxVal">50</span></b></div>
+
+    <div class="inputRow">
+      <input type="number" id="guessInput" placeholder="输入你猜的数字…" autocomplete="off">
+      <button class="btn" id="guessBtn">猜！</button>
+    </div>
+    <div class="hint" id="hint">按 Enter 快速提交</div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="thermo">
+      <div class="bar"><i id="barFill"></i></div>
+      <div class="barTxt"><span>❄️ 冰冷</span><span id="distVal">距离未知</span><span>🔥 滚烫</span></div>
+    </div>
+
+    <div class="histTitle">
+      <span>猜测记录</span>
+      <span id="histCount">0 次</span>
+    </div>
+    <div class="hist" id="hist"><div class="empty">还没有记录，开始你的第一次猜测吧</div></div>
+
+    <div class="foot">
+      <button class="ghost" id="restartBtn">🔄 重新开始</button>
+      <button class="ghost" id="giveupBtn">🏳️ 看答案</button>
+    </div>
+  </div>
+</div>
+
+<!-- 结算弹窗 -->
+<div class="mask" id="mask">
+  <div class="modal">
+    <div class="mEmo" id="mEmo">🎉</div>
+    <h2 id="mTitle">恭喜猜中！</h2>
+    <p id="mText"></p>
+    <div class="btns">
+      <button class="ghost" id="mClose">关闭</button>
+      <button class="btn" id="mAgain">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<div class="confetti" id="confetti"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ============ DOM ============ */
+  const $ = id => document.getElementById(id);
+  const input    = $('guessInput'),
+        guessBtn = $('guessBtn'),
+        feedback = $('feedback'),
+        hint     = $('hint'),
+        histBox  = $('hist'),
+        barFill  = $('barFill'),
+        distVal  = $('distVal'),
+        tryVal   = $('tryVal'),
+        leftVal  = $('leftVal'),
+        bestVal  = $('bestVal'),
+        maxVal   = $('maxVal'),
+        histCount= $('histCount'),
+        mask     = $('mask');
+
+  /* ============ 状态 ============ */
+  const S = { max:50, tries:6, answer:0, used:0, history:[], over:false };
+
+  const BEST_KEY = 'guessNumberBest_v1';
+
+  /* ============ 背景光点 ============ */
+  (function stars(){
+    const box = $('stars');
+    let html = '';
+    for(let i=0;i<26;i++){
+      const size = 2 + Math.random()*4;
+      html += `<i style="left:${Math.random()*100}%;width:${size}px;height:${size}px;
+               animation-duration:${9+Math.random()*12}s;animation-delay:-${Math.random()*14}s"></i>`;
+    }
+    box.innerHTML = html;
+  })();
+
+  /* ============ 初始化 ============ */
+  function newGame(){
+    S.answer = Math.floor(Math.random()*S.max) + 1;
+    S.used   = 0;
+    S.history= [];
+    S.over   = false;
+
+    input.value = '';
+    input.disabled = false;
+    guessBtn.disabled = false;
+    guessBtn.textContent = '猜！';
+    feedback.className = 'feedback';
+    feedback.innerHTML = '';
+    hint.className = 'hint';
+    hint.textContent = '按 Enter 快速提交';
+    histBox.innerHTML = '<div class="empty">还没有记录，开始你的第一次猜测吧</div>';
+    barFill.style.width = '0%';
+    barFill.style.marginLeft = '0%';
+    distVal.textContent = '距离未知';
+
+    renderStats();
+    input.focus();
+  }
+
+  function renderStats(){
+    const left = S.tries - S.used;
+    tryVal.textContent  = S.used;
+    leftVal.textContent = left;
+    leftVal.className   = left <= 2 ? 'danger' : '';
+    maxVal.textContent  = S.max;
+    histCount.textContent = S.used + ' 次';
+    bestVal.textContent = getBest() ?? '--';
+  }
+
+  /* ============ 最佳记录（按难度分别存） ============ */
+  function loadBest(){ try{ return JSON.parse(localStorage.getItem(BEST_KEY)) || {}; }catch(e){ return {}; } }
+  function getBest(){ return loadBest()[S.max] ?? null; }
+  function saveBest(n){
+    const all = loadBest();
+    if(all[S.max] == null || n < all[S.max]){
+      all[S.max] = n;
+      try{ localStorage.setItem(BEST_KEY, JSON.stringify(all)); }catch(e){}
+      return true; // 破纪录
+    }
+    return false;
+  }
+
+  /* ============ 核心：提交猜测 ============ */
+  function submit(){
+    if(S.over) return;
+
+    const raw = input.value.trim();
+    if(raw === ''){ showHint('请先输入一个数字', true); shake(input); return; }
+
+    const n = Number(raw);
+    if(!Number.isInteger(n) || n < 1 || n > S.max){
+      showHint(`请输入 1 ~ ${S.max} 之间的整数`, true);
+      shake(input);
+      return;
+    }
+    if(S.history.includes(n)){
+      showHint('这个数字已经猜过啦，换一个试试', true);
+      shake(input);
+      return;
+    }
+
+    S.used++;
+    S.history.push(n);
+    input.value = '';
+
+    const diff = n - S.answer;
+
+    if(diff === 0){
+      // 猜中
+      S.over = true;
+      addChip(n, 'hit');
+      updateThermo(0);
+      showFeedback('win', '🎯', `猜中了！答案就是 ${S.answer}`);
+      const isBest = saveBest(S.used);
+      renderStats();
+      endGame(true, isBest);
+    } else {
+      const tooBig = diff > 0;
+      addChip(n, tooBig ? 'down' : 'up');
+      updateThermo(Math.abs(diff));
+
+      const gap = Math.abs(diff);
+      let word, emo;
+      if(gap <= Math.max(1, Math.round(S.max*0.02))){ word = '非常接近！'; emo = '🔥'; }
+      else if(gap <= Math.max(2, Math.round(S.max*0.06))){ word = '很接近了'; emo = '😮'; }
+      else if(gap <= Math.max(4, Math.round(S.max*0.15))){ word = '有点远'; emo = '🙂'; }
+      else { word = '差得远呢'; emo = '🧊'; }
+
+      showFeedback(tooBig ? 'hot' : 'cold', emo,
+        `${tooBig ? '太大了' : '太小了'} · ${word}`);
+
+      renderStats();
+
+      if(S.used >= S.tries){
+        S.over = true;
+        endGame(false);
+      } else {
+        const left = S.tries - S.used;
+        showHint(left <= 2 ? `⚠️ 只剩 ${left} 次机会了，谨慎点！` : `继续保持，还剩 ${left} 次机会`);
+      }
+    }
+    input.focus();
+  }
+
+  /* ============ 反馈 / 提示 ============ */
+  function showFeedback(type, emo, text){
+    feedback.className = 'feedback show ' + type;
+    feedback.innerHTML = `<span class="emo">${emo}</span>${text}`;
+  }
+  function showHint(text, isErr){
+    hint.textContent = text;
+    hint.className = 'hint' + (isErr ? ' err' : '');
+  }
+  function shake(el){
+    el.animate(
+      [{transform:'translateX(0)'},{transform:'translateX(-7px)'},
+       {transform:'translateX(7px)'},{transform:'translateX(-4px)'},{transform:'translateX(0)'}],
+      {duration:260, easing:'ease-in-out'}
+    );
+  }
+
+  /* ============ 历史标签 ============ */
+  function addChip(n, cls){
+    const emptyEl = histBox.querySelector('.empty');
+    if(emptyEl) emptyEl.remove();
+
+    const el = document.createElement('div');
+    el.className = 'chip ' + cls;
+    const mark = cls === 'hit' ? '✓' : (cls === 'up' ? '↑' : '↓');
+    el.textContent = `${mark} ${n}`;
+    histBox.appendChild(el);
+    histBox.scrollTop = histBox.scrollHeight;
+  }
+
+  /* ============ 温度条 ============ */
+  function updateThermo(gap){
+    const pct = Math.max(2, 100 - (gap / S.max) * 100 * 1.6);
+    barFill.style.width = pct + '%';
+    barFill.style.marginLeft = (100 - pct) + '%';
+    distVal.textContent = gap === 0 ? '正中靶心 🎯' : `相差 ${gap}`;
+  }
+
+  /* ============ 结算 ============ */
+  function endGame(win, isBest){
+    input.disabled = true;
+    guessBtn.disabled = true;
+
+    if(!win){
+      showFeedback('lose','💀', `机会用完了！答案是 ${S.answer}`);
+      showHint('再来一局试试吧');
+    }
+
+    setTimeout(()=>{
+      if(win) fireConfetti();
+      $('mEmo').textContent   = win ? '🎉' : '😵';
+      $('mTitle').textContent = win ? '恭喜猜中！' : '很遗憾，失败了';
+      $('mText').innerHTML = win
+        ? `答案 <b>${S.answer}</b>，你用了 <b>${S.used}</b> 次猜中` +
+          (isBest ? '<br>🏆 新纪录！这是你在该难度下的最佳成绩' : `<br>该难度最佳记录：${getBest()} 次`)
+        : `正确答案是 <b>${S.answer}</b><br>小提示：试试二分法，每次都猜中间值`;
+      mask.classList.add('show');
+    }, win ? 650 : 900);
+  }
+
+  /* ============ 彩带 ============ */
+  function fireConfetti(){
+    const box = $('confetti');
+    const colors = ['#6ee7ff','#a78bfa','#3ddc97','#ffd166','#ff6b8b','#ffffff'];
+    let html = '';
+    for(let i=0;i<70;i++){
+      const c = colors[i % colors.length];
+      html += `<i style="left:${Math.random()*100}%;background:${c};
+               animation-duration:${1.6+Math.random()*1.4}s;
+               animation-delay:${Math.random()*.5}s"></i>`;
+    }
+    box.innerHTML = html;
+    setTimeout(()=> box.innerHTML = '', 3600);
+  }
+
+  /* ============ 事件 ============ */
+  guessBtn.addEventListener('click', submit);
+  input.addEventListener('keydown', e => { if(e.key === 'Enter') submit(); });
+
+  $('levels').addEventListener('click', e => {
+    const btn = e.target.closest('.lv');
+    if(!btn) return;
+    document.querySelectorAll('.lv').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    S.max   = +btn.dataset.max;
+    S.tries = +btn.dataset.tries;
+    newGame();
+  });
+
+  $('restartBtn').addEventListener('click', newGame);
+
+  $('giveupBtn').addEventListener('click', () => {
+    if(S.over) return;
+    if(!confirm(`确定要放弃吗？答案是 ${S.answer}`)) return;
+    S.over = true;
+    input.disabled = true;
+    guessBtn.disabled = true;
+    showFeedback('lose','🏳️', `答案是 ${S.answer}`);
+    renderStats();
+  });
+
+  $('helpBtn').addEventListener('click', () => {
+    $('mEmo').textContent   = '💡';
+    $('mTitle').textContent = '玩法说明';
+    $('mText').innerHTML =
+      '系统会在范围内随机生成一个整数。<br>' +
+      '每次猜测后会提示「太大了 / 太小了」。<br>' +
+      '温度条越靠近右侧 = 越接近答案 🔥<br>' +
+      '机会用完即失败。<br><br>' +
+      '<b>技巧：</b>用二分法，最多 ⌈log₂(n)⌉ 次必中！';
+    mask.classList.add('show');
+  });
+
+  $('mClose').addEventListener('click', () => mask.classList.remove('show'));
+  $('mAgain').addEventListener('click', () => { mask.classList.remove('show'); newGame(); });
+  mask.addEventListener('click', e => { if(e.target === mask) mask.classList.remove('show'); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') mask.classList.remove('show'); });
+
+  /* ============ 启动 ============ */
+  newGame();
+})();
+</script>
+</body>
+</html>
